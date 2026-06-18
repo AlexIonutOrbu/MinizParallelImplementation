@@ -1,1 +1,7 @@
+# Ignora gli eseguibili specifici del progetto
+minizseq
+minizpar
 
+# ignora tutti i file oggetto temporanei e i backup se si dovessero creare
+*.o
+*~
