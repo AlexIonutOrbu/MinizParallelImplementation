@@ -11,17 +11,20 @@
  *
  */
 
+#include <chrono>
 #include <cstdio>
+#include <iostream>
 
 #include "cmdline.hpp"
 #include "config.hpp"
 #include "utility_seq.hpp"
+using clock_type = std::chrono::steady_clock;
 
 int main(int argc, char* argv[]) {
     // parse command line arguments and set some global variables
     long start = parseCommandLine(argc, argv);
     if (start < 0) return -1;
-
+    auto t0 = clock_type::now();
     bool success = true;
     while (argv[start]) {
         if (isDirectory(argv[start])) {
@@ -36,6 +39,10 @@ int main(int argc, char* argv[]) {
         return -1;
     }
     printf("Exiting with Success\n");
-
+    auto t1 = clock_type::now();
+    double tsecSeq = std::chrono::duration<double>(t1 - t0).count();
+    std::cout.setf(std::ios::fixed);
+    std::cout.precision(6);
+    std::cout << "sequential time = " << tsecSeq << " (s)\n";
     return 0;
 }
