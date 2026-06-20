@@ -17,7 +17,7 @@ TARGETS		= minizseq minizpar
 all		: $(TARGETS)
 
 minizseq	: minizseq.cpp include/cmdline.hpp include/utility_seq.hpp
-minizpar    : minizpar.cpp include/cmdline.hpp include/utility_par.hpp 
+minizpar    : minizpar.cpp include/cmdline.hpp include/utility_par.hpp include/threadPool.hpp
 clean		: 
 	rm -f $(TARGETS) 
 cleanall	: clean

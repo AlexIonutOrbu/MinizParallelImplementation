@@ -140,6 +140,7 @@ inline long parseCommandLine(int argc, char* argv[]) {
         usage(argv[0]);
         return -1;
     }
+    cfg.pool = std::make_unique<threadPool>(cfg.num_threads);
     return i;  // index of the first optional args
 }
 

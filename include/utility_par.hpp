@@ -10,6 +10,7 @@
 
 #include "config.hpp"
 #include "miniz.h"
+#include "threadPool.hpp"
 
 namespace fs = std::filesystem;
 
@@ -296,24 +297,33 @@ inline bool walkDir(const char* dir_cstr) {
     }
     // lambda che itera sui file tramite la dowork
     bool all_ok = true;
-    auto handle = [&](const fs::path& p) {
+    auto handle = [&](const fs::path& p) -> bool{
         if (!should_process(p)) {
             if (cfg.verbose)
                 std::fprintf(stderr, "Skip: %s\n", p.string().c_str());
-            return;
+            return all_ok;
         }
         all_ok &= doWork(p.string().c_str());
+        return all_ok;
     };
 
     if (cfg.recursive) {
         // itera ricorsivamente
+        std::vector<std::future<bool>> F;
         fs::directory_options opts = fs::directory_options::skip_permission_denied;
         for (auto it = fs::recursive_directory_iterator(root, opts),
                   end = fs::recursive_directory_iterator();
             it != end; ++it) {
             std::error_code ec;
             if (it->is_symlink(ec) || it->is_directory(ec)) continue;
-            if (it->is_regular_file(ec)) handle(it->path());
+            if (it->is_regular_file(ec)) {
+                
+                F.emplace_back(cfg.pool->submit(handle, it->path()));
+            }
+        }
+        for(size_t i=0;i<F.size();++i) {
+            const auto& V = F[i].get();
+            all_ok&=V;
         }
     } else {
         // itera non ricorsivamente
