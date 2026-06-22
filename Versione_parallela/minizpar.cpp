@@ -26,14 +26,13 @@ int main(int argc, char* argv[]) {
     // parse command line arguments and set some global variables
     long start = parseCommandLine(argc, argv);
     std::vector<std::future<bool>> F;
-    std::vector<char*> fileList;
+    std::vector<char*> fileList;  // Lista dei file da processare (file o directory)
     if (start < 0) return -1;
     auto t0 = clock_type::now();
     bool success = true;
     while (argv[start]) {
         if (isDirectory(argv[start])) {
             F.emplace_back(cfg.pool->submit(walkDir, argv[start]));
-            std::cout << "Task partito" << std::endl;
         } else {
             F.emplace_back(cfg.pool->submit(doWork, argv[start]));
         }

@@ -15,8 +15,8 @@ struct Config {
     WorkMode mode = WorkMode::COMP;                                       // default: compress
     bool verbose = false;                                                 // -v verbose mode
     std::string out_ext = ".defl";                                        // estensione del file compresso
-    size_t block_size = 1024;                                             // Placeholder momentaneo
-    size_t file_limit = 1024;                                             // Placeholder momentaneo
+    size_t block_size = 1024 * 256;                                       // default: Ogni file grande viene diviso in blocchi da 256KB
+    size_t file_limit = 1024 * 256;                                       // default: File considerato piccolo se <= 256KB
     int num_threads = std::max(1u, std::thread::hardware_concurrency());  // numero di thread
     std::unique_ptr<threadPool> pool;                                     // thread pool condiviso
 };

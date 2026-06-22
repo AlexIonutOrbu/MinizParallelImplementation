@@ -26,10 +26,20 @@ inline bool isDirectory(const char* path) {
     if (fs::is_directory(st)) return true;  // controlla se è una directory
     return false;
 }
+inline size_t get_file_size(const char* path) {
+    const fs::path p(path);
+    try {
+        return fs::file_size(p);
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "Error: cannot get file size for %s (%s)\n", path, e.what());
+        return 0;
+    }
+}
 /*
     Controlla se è un file con cui dobbiamo effettivamente interagire o se è "saltabile"
 */
-inline bool should_process(const std::filesystem::path& p) {
+inline bool
+should_process(const std::filesystem::path& p) {
     const std::string ext = p.extension().string();  // estrae l'estensione
     if (cfg.mode == COMP) {
         // se è un file tomperaneo o già compresso lo salta
@@ -290,26 +300,39 @@ inline bool doWork(const char* path_cstr) {
 // walking the directory recursively (if -r 1)
 inline bool walkDir(const char* dir_cstr) {
     // controlla che sia una directory
+    std::vector<std::future<bool>> F;  // vettore di future che conserva i risultati
+    std::vector<fs::path> fileList;    // Lista dei file da processare
+    std::size_t current_size = 0;      // dimensione dei file raccolti nella fileList
     const fs::path root(dir_cstr);
     if (!fs::exists(root) || !fs::is_directory(root)) {
         std::fprintf(stderr, "Non è una directory: %s\n", dir_cstr);
         return false;
     }
     // lambda che itera sui file tramite la dowork
-    bool all_ok = true;
-    auto handle = [&](const fs::path& p) -> bool{
+    bool all_ok = true;  // sarà false in caso di fallimento di compressione/decompressione di almeno un file
+    auto handleSingle = [](const fs::path p) -> bool {
         if (!should_process(p)) {
             if (cfg.verbose)
                 std::fprintf(stderr, "Skip: %s\n", p.string().c_str());
-            return all_ok;
+            return true;
         }
-        all_ok &= doWork(p.string().c_str());
-        return all_ok;
+        return doWork(p.string().c_str());
     };
-
+    auto handleMultiple = [](const std::vector<fs::path> p) -> bool {
+        bool ok = true;
+        for (const fs::path& path : p) {
+            if (!should_process(path)) {
+                if (cfg.verbose)
+                    std::fprintf(stderr, "Skip: %s\n", path.string().c_str());
+                continue;
+            }
+            ok &= doWork(path.string().c_str());
+        }
+        return ok;
+    };
     if (cfg.recursive) {
-        // itera ricorsivamente
-        std::vector<std::future<bool>> F;
+        // itera ricorsivamente sulla directory
+
         fs::directory_options opts = fs::directory_options::skip_permission_denied;
         for (auto it = fs::recursive_directory_iterator(root, opts),
                   end = fs::recursive_directory_iterator();
@@ -317,20 +340,55 @@ inline bool walkDir(const char* dir_cstr) {
             std::error_code ec;
             if (it->is_symlink(ec) || it->is_directory(ec)) continue;
             if (it->is_regular_file(ec)) {
-                
-                F.emplace_back(cfg.pool->submit(handle, it->path()));
+                std::size_t file_size = get_file_size((it->path().string().c_str()));
+                if (file_size > cfg.file_limit) {
+                    F.emplace_back(cfg.pool->submit(handleSingle, it->path()));  // file grande che verrà processato singolarmente
+                    std::cout << "Task per file grande partito" << std::endl;
+                } else {
+                    if (file_size + current_size > cfg.file_limit) {
+                        // se la lista di file che voglio affidare al task ha raggiunto la dimensione di un file grande li processo
+                        F.emplace_back(cfg.pool->submit(handleMultiple, fileList));
+                        std::cout << "Task per file piccoli multipli partito" << std::endl;
+                        current_size = 0;
+                        fileList.clear();
+                    } else {
+                        fileList.push_back(it->path());
+                        current_size += file_size;
+                    }
+                }
             }
-        }
-        for(size_t i=0;i<F.size();++i) {
-            const auto& V = F[i].get();
-            all_ok&=V;
         }
     } else {
         // itera non ricorsivamente
         for (auto& de : fs::directory_iterator(root, fs::directory_options::skip_permission_denied)) {
             std::error_code ec;
-            if (de.is_regular_file(ec)) handle(de.path());
+            if (de.is_regular_file(ec)) {
+                std::size_t file_size = get_file_size((de.path().string().c_str()));
+                if (file_size > cfg.file_limit) {
+                    F.emplace_back(cfg.pool->submit(handleSingle, de.path()));  // file grande che verrà processato singolarmente
+                    std::cout << "Task per file grande partito" << std::endl;
+                } else {
+                    if (file_size + current_size > cfg.file_limit) {
+                        // se la lista di file che voglio affidare al task ha raggiunto la dimensione di un file grande li processo
+                        F.emplace_back(cfg.pool->submit(handleMultiple, fileList));
+                        std::cout << "Task per file piccoli multipli partito" << std::endl;
+                        current_size = 0;
+                        fileList.clear();
+                    } else {
+                        fileList.push_back(de.path());
+                        current_size += file_size;
+                    }
+                }
+            }
         }
+    }
+    if (fileList.size() > 0) {
+        // Se sono avanzati dei file file piccoli una volta finita l'iterazione sulla directory
+        F.emplace_back(cfg.pool->submit(handleMultiple, fileList));
+        std::cout << "Task per file piccoli multipli partito" << std::endl;
+    };
+    for (size_t i = 0; i < F.size(); ++i) {
+        all_ok &= F[i].get();  // controlla che sia andata bene la compressione/decompressione di tutti i file
     }
     return all_ok;
 }
