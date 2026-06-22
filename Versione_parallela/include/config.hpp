@@ -1,7 +1,8 @@
 #pragma once
 #include <string>
 #include <thread>
-#include <threadPool.hpp>
+
+#include "threadPool.hpp"
 // operations
 enum WorkMode : int { COMP = 0,
     DECOMP = 1 };
@@ -17,8 +18,7 @@ struct Config {
     size_t block_size = 1024;                                             // Placeholder momentaneo
     size_t file_limit = 1024;                                             // Placeholder momentaneo
     int num_threads = std::max(1u, std::thread::hardware_concurrency());  // numero di thread
-    std::unique_ptr<threadPool> pool; // Sposta la gestione qui
-    
+    std::unique_ptr<threadPool> pool;                                     // thread pool condiviso
 };
 
 // Unique instance of the global cfg variable (C++17 inline variable)

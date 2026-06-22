@@ -5,7 +5,7 @@ CXXFLAGS  	+= -Wall
 LDFLAGS 	= #-pthread -fopenmp
 OPTFLAGS	= -O3 -march=native
 
-TARGETS		= minizseq minizpar
+TARGETS		= minizpar
 
 .PHONY: all clean cleanall
 .SUFFIXES: .cpp 
@@ -16,8 +16,7 @@ TARGETS		= minizseq minizpar
 
 all		: $(TARGETS)
 
-minizseq	: minizseq.cpp include/cmdline.hpp include/utility_seq.hpp
-minizpar    : minizpar.cpp include/cmdline.hpp include/utility_par.hpp include/threadPool.hpp
+minizpar    : minizpar.cpp include/cmdline.hpp include/utility.hpp include/threadPool.hpp
 clean		: 
 	rm -f $(TARGETS) 
 cleanall	: clean

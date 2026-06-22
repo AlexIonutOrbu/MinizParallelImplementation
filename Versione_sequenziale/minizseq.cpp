@@ -11,44 +11,33 @@
  *
  */
 
-#include <cstdio>
 #include <chrono>
+#include <cmdline.hpp>
+#include <config.hpp>
+#include <cstdio>
 #include <iostream>
-#include "cmdline.hpp"
-#include "config.hpp"
-#include "utility_par.hpp"
-#include "threadPool.hpp"
-
+#include <utility.hpp>
 using clock_type = std::chrono::steady_clock;
-
 int main(int argc, char* argv[]) {
     // parse command line arguments and set some global variables
     long start = parseCommandLine(argc, argv);
-    std::vector<std::future<bool>> F;
-    std::vector<char*> fileList;
     if (start < 0) return -1;
+
     auto t0 = clock_type::now();
     bool success = true;
     while (argv[start]) {
         if (isDirectory(argv[start])) {
-            F.emplace_back(cfg.pool->submit(walkDir,argv[start]));
-            std::cout<<"Task partito"<<std::endl;
+            success &= walkDir(argv[start]);
         } else {
-            F.emplace_back(cfg.pool->submit(doWork,argv[start]));
+            success &= doWork(argv[start]);
         }
         start++;
-    }
-    for(size_t i=0;i<F.size();++i) {
-        const auto& V = F[i].get();
-        success&=V;
     }
     if (!success) {
         printf("Exiting with (some) Error(s)\n");
         return -1;
     }
     printf("Exiting with Success\n");
-
-    //print_info();
     auto t1 = clock_type::now();
     double tsecSeq = std::chrono::duration<double>(t1 - t0).count();
     std::cout.setf(std::ios::fixed);

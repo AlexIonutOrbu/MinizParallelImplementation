@@ -22,7 +22,7 @@ Opzioni:
   -h         Help
 
 Esempio:
-  %s -r 1 -C 0 mydir file1.bin file2.txt
+  %s -r 1 -C 0 -t 4 -s 2M -b 256K mydir file1.bin file2.txt
 )",
         prog, prog);
 }
